@@ -1,12 +1,20 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const connectDB = async () =>{
+const connectDB = async () => {
     try {
-        mongoose.connection.on('connected', ()=> console.log('Database connected'))
-        await mongoose.connect(`${process.env.MONGODB_URI}/agora_gpt`)
+
+        await mongoose.connect(
+            `${process.env.MONGODB_URI}/agoragpt`
+        );
+
+        console.log("MongoDB Connected");
+
     } catch (error) {
-        console.log(error.message)
+
+        console.error("MongoDB Error:", error);
+
+        process.exit(1);
     }
-}
+};
 
 export default connectDB;
