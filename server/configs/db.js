@@ -4,7 +4,7 @@ const connectDB = async () => {
     try {
 
         await mongoose.connect(
-            `${process.env.MONGODB_URI}/agoragpt`
+            `${process.env.MONGODB_URI}/agora_gpt`
         );
 
         console.log("MongoDB Connected");
