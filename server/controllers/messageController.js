@@ -4,6 +4,26 @@ import User from "../models/User.js"
 import imagekit from "../configs/imageKit.js"
 import openai from '../configs/openai.js'
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const openAIWithRetry = async (fn, maxAttempts = 3) => {
+    let attempt = 0
+
+    while (true) {
+        try {
+            return await fn()
+        } catch (error) {
+            attempt += 1
+            const isRateLimit = error?.status === 429
+            if (!isRateLimit || attempt >= maxAttempts) {
+                throw error
+            }
+            const backoffMs = 1000 * 2 ** (attempt - 1)
+            console.warn(`OpenAI rate limit hit, retrying in ${backoffMs}ms (attempt ${attempt}/${maxAttempts})`)
+            await delay(backoffMs)
+        }
+    }
+}
 
 // Text-based AI Chat Message Controller
 export const textMessageController = async (req, res) => {
@@ -20,25 +40,36 @@ export const textMessageController = async (req, res) => {
         const chat = await Chat.findOne({userId, _id: chatId})
         chat.messages.push({role: "user", content: prompt, timestamp: Date.now(), isImage: false})
 
-        const { choices } = await openai.chat.completions.create({
-        model: "gemini-2.0-flash",
-        messages: [
-            {
-                role: "user",
-                content: prompt,
-            },
-        ],
-    });
+        const response = await openAIWithRetry(() =>
+            openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt,
+                    },
+                ],
+            })
+        )
 
-    const reply = {...choices[0].message, timestamp: Date.now(), isImage: false}
-    res.json({success: true, reply})
+        if (!response || !response.choices || response.choices.length === 0) {
+            throw new Error('OpenAI returned no completion choices')
+        }
 
-    chat.messages.push(reply)
-    await chat.save()
-    await User.updateOne({_id: userId}, {$inc: {credits: -1}})
+        const reply = { ...response.choices[0].message, timestamp: Date.now(), isImage: false }
+        chat.messages.push(reply)
+        await chat.save()
+        await User.updateOne({ _id: userId }, { $inc: { credits: -1 } })
+
+        res.json({ success: true, reply })
 
     } catch (error) {
-        res.json({success: false, message: error.message})
+        const message = error?.status === 429
+            ? 'Rate limit exceeded. Please wait a moment before trying again.'
+            : error.message || 'An error occurred while processing your request.'
+
+        console.error('textMessageController error:', error)
+        res.status(error?.status || 500).json({ success: false, message })
     }
 }
 
