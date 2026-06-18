@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import jwt from 'jsonwebtoken'
 import bcrypt from "bcryptjs";
 import Chat from "../models/Chat.js";
+import { sendWelcomeEmail } from "../services/emailService.js";
 
 // Generate JWT
 const generateToken = (id)=>{
@@ -21,10 +22,24 @@ export const registerUser = async (req, res) => {
             return res.json({success: false, message: "User already exists"})
         }
 
-        const user = await User.create({name, email, password})
+        const user = await User.create({
+            name,
+            email,
+            password
+        });
 
-        const token = generateToken(user._id)
-        res.json({success: true, token})
+        await sendWelcomeEmail(
+            user.email,
+            user.name
+        );
+
+        const token = generateToken(user._id);
+
+        res.json({
+        success: true,
+        token
+        });
+    
     } catch (error) {
         return res.json({success: false, message: error.message })
     }
