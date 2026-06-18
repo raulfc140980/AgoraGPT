@@ -6,3 +6,4 @@ The project is deliberately designed as a stage or demonstration version:
 • Intranet data is stored in JSON files.
 • The actual connection to Agora is not included.
 • OpenAI API key is configured.
+• Brevo API key is configured so the user gets a confirmation mail when his/her new account is successfully created.
